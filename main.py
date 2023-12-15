@@ -1,3 +1,11 @@
+import os
+import sys
+import datetime as dt
+from distutils.dir_util import copy_tree
+
+SWITCH = 'switch'
+WIIU = 'wiiU'
+
 HEADERS = {
             0x24e2, 0x24EE, 0x2588, 0x29c0,
             0x3ef8, 0x471a, 0x471b, 0x471e
@@ -27,8 +35,36 @@ HASHES = {
     0x0E9D0E75, 0x750E9D0E
 }
 
-def main():
-    pass
+class SaveManager():
+    def __init__(self, type, source) -> None:
+        if not os.path.exists(source):
+            raise ValueError('Source folder does not exists')
+        
+        self.type = type
+        self.source = source
+        
+        
+    def convert(self, destination):
+        if not os.path.exists(destination):
+            raise ValueError('Destination folder does not exists')
+        
+        copy_tree(destination, destination + '_backup_' + dt.datetime.now().strftime('%d-%m-%Y_%H.%M'))
+        copy_tree(self.source, destination)
+        
+        for file in get_files_with_extension(self.source, '.sav'):
+            print(file)
+
+
+def get_files_with_extension(folder, ext):
+    filesFound = []
+    
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            if file.endswith(ext):
+                filesFound.append(os.path.join(root, file))
+    
+    return filesFound
 
 if __name__ == '__main__':
-    main()
+    sm = SaveManager(SWITCH, 'D:\\Users\\Natha\\Emulators\\Wii U Updates\\usr\\save\\00050000\\101c9400\\user\\80000001')
+    sm.convert('C:\\Users\\Natha\\Downloads\\savetests')
