@@ -1,3 +1,4 @@
+import pdb
 import os
 import sys
 import datetime as dt
@@ -7,9 +8,9 @@ SWITCH = 'switch'
 WIIU = 'wiiU'
 
 HEADERS = {
-            0x24e2, 0x24EE, 0x2588, 0x29c0,
-            0x3ef8, 0x471a, 0x471b, 0x471e
-        }
+    0x24e2, 0x24EE, 0x2588, 0x29c0,
+    0x3ef8, 0x471a, 0x471b, 0x471e
+}
 
 VERSIONS = {
     "v1.0", "v1.1", "v1.2", "v1.3",
@@ -42,7 +43,7 @@ class SaveManager():
         
         self.type = type
         self.source = source
-        
+        self.readerPos = 0
         
     def convert(self, destination):
         if not os.path.exists(destination):
@@ -51,9 +52,51 @@ class SaveManager():
         copy_tree(destination, destination + '_backup_' + dt.datetime.now().strftime('%d-%m-%Y_%H.%M'))
         copy_tree(self.source, destination)
         
-        for file in get_files_with_extension(self.source, '.sav'):
+        for file in get_files_with_extension(destination, '.sav'):
+            data = bytearray(open(file, 'rb').read())
+            converted = data.copy()
             print(file)
+            # pdb.set_trace()
+            
+            normalCount = 0
+            pos = 0
+            while pos < (len(data)/4):
+                    
+                if 'trackblock' in file and pos == 0:
+                    converted[2:4] = bytes(reversed(converted[4:6]))
+                    pos = 2
+                    
+                self.readerPos = pos * 4
+                buffer = converted[self.readerPos:self.readerPos+4]
+                
+                # pdb.set_trace()
+                if int.from_bytes(bytes(buffer), sys.byteorder, signed=False) in HASHES:
+                    converted[self.readerPos:self.readerPos+4] = bytes(reversed(buffer))
+                    
+                    pos += 1
+                elif not item_in_buffer(buffer):
+                    converted[self.readerPos:self.readerPos+4] = bytes(reversed(buffer))
+                    normalCount += 1
+                else:
+                    pos += 1
+                    for i in range(16):
+                        self.readerPos = (pos + (i * 2)) * 4
+                        buffer = converted[self.readerPos:self.readerPos+4]
+                        converted[self.readerPos:self.readerPos+4] = bytes(reversed(buffer))
+                    
+                    pos += 30
+                
+                pos += 1
+                
+            open(file, 'wb').write(converted)            
+            
 
+
+def item_in_buffer(buffer):
+    try:
+        return any([item in buffer.decode('utf-8') for item in ITEMS])
+    except UnicodeDecodeError:
+        return False
 
 def get_files_with_extension(folder, ext):
     filesFound = []
@@ -66,5 +109,8 @@ def get_files_with_extension(folder, ext):
     return filesFound
 
 if __name__ == '__main__':
-    sm = SaveManager(SWITCH, 'D:\\Users\\Natha\\Emulators\\Wii U Updates\\usr\\save\\00050000\\101c9400\\user\\80000001')
-    sm.convert('C:\\Users\\Natha\\Downloads\\savetests')
+    # sm = SaveManager(SWITCH, 'D:\\Users\\Natha\\Emulators\\Wii U Updates\\usr\\save\\00050000\\101c9400\\user\\80000001')
+    # sm = SaveManager(SWITCH, 'C:\\Users\\Natha\\Downloads\\yuzu saves')
+    sm = SaveManager(SWITCH, 'test')
+    # sm.convert('test')
+    sm.convert('D:\\Users\\Natha\\Emulators\\Wii U Updates\\usr\\save\\00050000\\101c9400\\user\\80000001')
